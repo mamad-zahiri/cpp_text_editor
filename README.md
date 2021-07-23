@@ -1,2 +1,2 @@
-# text_editor
-a simple text editor with some restriction on using C++ features.
+# text editor
+a simple command line text editor with some restriction on using C++ features.
