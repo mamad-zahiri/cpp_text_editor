@@ -5,3 +5,7 @@ A simple command line text editor with some restriction on using C++ features
 ```shell
 $ g++ main.cpp text_editor.cpp
 ```
+then run 
+```
+>> help
+```
