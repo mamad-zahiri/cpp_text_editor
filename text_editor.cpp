@@ -2,36 +2,49 @@
 #include <string>
 #include <iomanip>
 #include <fstream>
-#include "text_editor.hpp"
+#include "29_text_editor.hpp"
 
 using namespace std;
 
-string TEXT;
 string CMD;
+string FILE_NAME = "";
+string TEXT[MAX_LINE_COUNT];
+int LINE_COUNT = 1;
 string CLIPBOARD;
-string FILE_NAME;
 
-int TEXT_pos(int pos)
+int TEXT_line(int line, string msg)
 {
-    int l = TEXT.length();
+    if (line < 0)
+    {
+        cout << msg;
+        cin >> line;
+        cin.ignore();
+    }
+    return line < 0             ? 0
+           : line >= LINE_COUNT ? LINE_COUNT - 1
+                                : line;
+}
+
+int TEXT_pos(int line, int pos, string msg)
+{
+    int l = TEXT[line].length();
     if (pos < 0)
     {
-        cout << "pos : ";
+        cout << msg;
         cin >> pos;
         cin.ignore();
     }
     return pos < 0    ? 0
-           : pos == 0 ? 0
            : pos >= l ? l
                       : pos;
 }
 
-int TEXT_len(int pos, int len)
+int TEXT_len(int line, int pos, int len, string msg)
 {
-    int l = TEXT.length();
+    int l = TEXT[line].length();
     if (len < 0)
     {
-        cout << "len : ";
+        cout << msg;
         cin >> len;
         cin.ignore();
     }
@@ -40,22 +53,38 @@ int TEXT_len(int pos, int len)
                              : len;
 }
 
-string TEXT_text(string text)
+string TEXT_text(string text, string msg)
 {
     if (text == "")
     {
-        cout << "text : ";
+        cout << msg;
         getline(cin, text);
     }
     return text;
 }
 
-void get_text()
+void show_text()
 {
-    cout << "\n============================== START ==============================\n"
-         << TEXT /*<< (TEXT[-1] == '\n' ? "" : "%\n")*/
-         << "\n==============================  END  =============================="
-         << "\n=== " << setw(5) << TEXT.length() << " chars " << setw(53) << " ===\n\n";
+    int c, total_len = 0;
+    cout << "\n-------------------------------------------------------------------\n";
+    for (int line = 0; line < LINE_COUNT; line++)
+    {
+        cout << "|" << setw(2) << line << " | ";
+        for (c = 0; c < TEXT[line].length(); c++)
+            if (c > 0 && c % 59 == 0)
+                cout << " |\n|     " << TEXT[line][c];
+            else
+                cout << TEXT[line][c];
+        cout << setw((c < 60 ? 61 : 60) - c % 60) << "|" << endl;
+
+        total_len += TEXT[line].length();
+    }
+    cout << "-------------------------------------------------------------------"
+         << "\n| "
+         << setw(5) << total_len << " chars "
+         << setw(5) << LINE_COUNT << " lines "
+         << setw(41) << " |"
+         << "\n-------------------------------------------------------------------\n\n";
 }
 
 void read_cmd()
@@ -63,46 +92,64 @@ void read_cmd()
     cout << PROMPT;
     getline(cin, CMD);
 
-    CMD == CMD_get_text  ? get_text()
+    CMD == CMD_show_text ? show_text()
     : CMD == CMD_insert  ? insert()
-    : CMD == CMD_select  ? select()
-    : CMD == CMD_move    ? move()
-    : CMD == CMD_copy    ? copy()
-    : CMD == CMD_paste   ? paste()
-    : CMD == CMD_erase   ? erase()
+
+    : CMD == CMD_select ? select()
+    : CMD == CMD_move   ? move()
+    : CMD == CMD_copy   ? copy()
+    : CMD == CMD_paste  ? paste()
+    : CMD == CMD_erase  ? erase()
+
+    : CMD == CMD_clear ? clear()
+
     : CMD == CMD_find    ? find()
     : CMD == CMD_replace ? replace()
-    : CMD == CMD_open    ? open()
-    : CMD == CMD_save    ? save()
-    : CMD == CMD_help    ? help()
-    : CMD == CMD_exit    ? goodbye()
-                         : command_not_found();
+
+    : CMD == CMD_add_line     ? add_line()
+    : CMD == CMD_move_line    ? move_line()
+    : CMD == CMD_copy_line    ? copy_line()
+    : CMD == CMD_clear_line   ? clear_line()
+    : CMD == CMD_remove_line  ? remove_line()
+    : CMD == CMD_remove_lines ? remove_lines()
+
+    : CMD == CMD_open ? open()
+    : CMD == CMD_save ? save()
+
+    : CMD == CMD_help ? help()
+
+    : CMD == CMD_exit ? goodbye()
+                      : command_not_found();
 }
 
-void insert(string str, int pos)
+void insert(string str, int line, int pos)
 {
-    str = TEXT_text(str);
-    pos = TEXT_pos(pos);
-    TEXT.insert(pos, str);
+    str = TEXT_text(str, "text : ");
+    line = TEXT_line(line, "to line : ");
+    pos = TEXT_pos(line, pos, "at pos : ");
+    TEXT[line].insert(pos, str);
 }
 
-void select(int from, int len)
+void select(int line, int from, int len)
 {
     CLIPBOARD = "";
-    from = TEXT_pos(from);
-    len = TEXT_len(from, len);
-    for (int i = from; i < (from + len > TEXT.length() ? TEXT.length() : from + len); i++)
-        CLIPBOARD += TEXT[i];
+    line = TEXT_line(line, "at line : ");
+    from = TEXT_pos(line, from, "from pos : ");
+    len = TEXT_len(line, from, len, "len : ");
+    for (int i = from; i < (from + len > TEXT[line].length() ? TEXT[line].length() : from + len); i++)
+        CLIPBOARD += TEXT[line][i];
 }
 
 void move()
 {
-    int from = TEXT_pos();
-    int len = TEXT_len(from);
-    int pos = TEXT_pos();
-    select(from, len);
-    erase(from, len);
-    paste((pos < from ? pos : pos - len));
+    int from_line = TEXT_line(-1, "from line : "),
+        from_pos = TEXT_pos(from_line, -1, "from pos : "),
+        len = TEXT_len(from_line, from_pos, -1, "len : "),
+        to_line = TEXT_line(-1, "to line : "),
+        to_pos = TEXT_pos(to_line, -1, "at pos : ");
+    select(from_line, from_pos, len);
+    erase(from_line, from_pos, len);
+    paste(to_line, (to_pos > from_line && from_line == to_line ? to_pos - len : to_pos));
 }
 
 void copy()
@@ -111,34 +158,49 @@ void copy()
     paste();
 }
 
-void paste(int pos)
+void paste(int line, int pos)
 {
-    pos = TEXT_pos(pos);
-    insert(CLIPBOARD, pos);
+    line = TEXT_line(line, "to line : ");
+    pos = TEXT_pos(line, pos, "paste to : ");
+    insert(CLIPBOARD, line, pos);
 }
 
-void erase(int from, int len)
+void erase(int line, int from, int len)
 {
-    from = TEXT_pos(from);
-    len = TEXT_len(from, len);
-    TEXT.erase(from, len);
+    line = TEXT_line(line, "at line : ");
+    from = TEXT_pos(line, from, "erase from : ");
+    len = TEXT_len(line, from, len, "len : ");
+    TEXT[line].erase(from, len);
+}
+
+void clear()
+{
+    for (int line = 0; line < LINE_COUNT; line++)
+        TEXT[line] = "";
+    LINE_COUNT = 1;
 }
 
 void find(string str)
 {
-    CLIPBOARD = TEXT_text(str);
-    int counter = 1,
-        pos = TEXT.find(CLIPBOARD);
+    CLIPBOARD = TEXT_text(str, "find what : ");
 
-    while (pos >= 0)
+    for (int line = 0; line < LINE_COUNT; line++)
     {
-        cout << setw(4) << counter << " -> " << setw(4) << pos << " - `";
-        for (int i = pos - 4 < 0 ? 0 : (pos - 4); i < (pos + 5 > TEXT.length() ? TEXT.length() : pos + 5); i++)
-            cout << TEXT[i];
-        cout << "`\n";
+        int pos = TEXT[line].find(CLIPBOARD),
+            C_len = CLIPBOARD.length();
+        if (pos >= 0)
+        {
+            cout << "\n   line " << line << endl;
+            while (pos >= 0)
+            {
+                cout << setw(4) << pos << " - `";
+                for (int i = pos; i < (pos + C_len + 5 <= TEXT[line].length() ? pos + C_len + 5 : TEXT[line].length()); i++)
+                    cout << TEXT[line][i];
+                cout << "`" << endl;
 
-        pos = TEXT.find(CLIPBOARD, pos + 1);
-        counter++;
+                pos = TEXT[line].find(CLIPBOARD, pos + 1);
+            }
+        }
     }
 }
 
@@ -146,45 +208,95 @@ void replace()
 {
     find();
 
-    cout << "replace with\n";
-    string new_str = TEXT_text();
-
-    cout << "replace all : [y/n]\n";
-    string replace_all = TEXT_text();
+    string new_text = TEXT_text("", "replace with : "),
+           replace_all = TEXT_text("", "replace all : [y/n] ");
 
     if (replace_all == "Y" || replace_all == "y")
     {
-        int pos = TEXT.find(CLIPBOARD);
-        while (pos >= 0)
+        for (int line = 0; line < LINE_COUNT; line++)
         {
-            TEXT.replace(pos, CLIPBOARD.length(), new_str);
-            pos = TEXT.find(CLIPBOARD, pos + 1);
+            int pos = TEXT[line].find(CLIPBOARD);
+            while (pos >= 0)
+            {
+                TEXT[line].replace(pos, CLIPBOARD.length(), new_text);
+                pos = TEXT[line].find(CLIPBOARD, pos + 1);
+            }
         }
     }
     else
-        TEXT.replace(TEXT_pos(), CLIPBOARD.length(), new_str);
+    {
+        int line = TEXT_line(-1, "which line : "),
+            pos = TEXT_pos(line, -1, "on pos : ");
+        TEXT[line].replace(pos, CLIPBOARD.length(), new_text);
+    }
 }
 
-void open()
+void add_line(int at_line, string text)
 {
-    cout << "file name\n";
-    FILE_NAME = TEXT_text();
-    ifstream file;
-    file.open(FILE_NAME);
-    if (file)
-        TEXT.assign((istreambuf_iterator<char>(file)), (istreambuf_iterator<char>()));
-    else
-        cout << "file not found\n";
-    file.close();
+    if (at_line < 0 || at_line > LINE_COUNT)
+    {
+        cout << "at line : ";
+        cin >> at_line;
+        cin.ignore();
+        at_line = at_line < 0            ? 0
+                  : at_line > LINE_COUNT ? LINE_COUNT
+                                         : at_line;
+    }
+    text = TEXT_text(text, "text : ");
+
+    for (int line = LINE_COUNT; line >= at_line; line--)
+        TEXT[line] = TEXT[line - 1];
+
+    TEXT[at_line] = text;
+    ++LINE_COUNT;
 }
 
-void save()
+void move_line(int from, int to)
 {
-    cout << "file name\n";
-    FILE_NAME = TEXT_text();
-    ofstream file(FILE_NAME);
-    file << TEXT;
-    file.close();
+    from = TEXT_line(from, "from : ");
+    to = TEXT_line(to, "to : ");
+
+    string tmp = TEXT[from];
+
+    remove_line(from);
+    add_line(to > from ? to - 1 : to, tmp);
+}
+
+void copy_line(int from, int to)
+{
+    add_line(to, TEXT[TEXT_line(from, "from : ")]);
+    ++LINE_COUNT;
+}
+
+void clear_line(int line)
+{
+    line = TEXT_line(line, "which line : ");
+    TEXT[line] = "";
+}
+
+void remove_lines(int from, int len)
+{
+    from = TEXT_line(from, "at : ");
+    // checks for remove_line()
+    len = len != 1 ? TEXT_line(-1, "to : ") - from + 1 : 1;
+
+    if (len > 0)
+    {
+        if (from + len >= LINE_COUNT)
+            for (; from < LINE_COUNT;)
+                TEXT[from++] = "";
+        else
+            // shift next lines backward
+            for (int l = from + len; l < LINE_COUNT; l++, from++)
+                TEXT[from] = TEXT[l];
+
+        LINE_COUNT -= len;
+    }
+}
+
+void remove_line(int line)
+{
+    remove_lines(line, 1);
 }
 
 void goodbye()
@@ -197,33 +309,90 @@ void command_not_found()
     cout << "command not found!\n";
 }
 
+void open()
+{
+    string name = TEXT_text("", "enter a file name to open : ");
+    ifstream file;
+    file.open(name);
+    if (file)
+        for (int line = 0; line < MAX_LINE_COUNT && getline(file, TEXT[line++]); LINE_COUNT++)
+            ;
+    else
+        cout << "file \"" << name << "\" not found\n";
+    file.close();
+}
+
+void save()
+{
+    string name = TEXT_text("", "enter a file name to save : ");
+    ofstream file;
+    file.open(name);
+    if (file.is_open())
+        for (int line = 0; line < LINE_COUNT; line++)
+            if (line < LINE_COUNT - 1)
+                file << TEXT[line] << "\n";
+            else
+                file << TEXT[line];
+    file.close();
+}
+
 void help()
 {
     cout
-        << setw(15) << "help" << setw(4) << ""
-        << "show all commands. each command tells user for its own inputs when called\n"
-        << setw(15) << "show" << setw(4) << ""
-        << "show TEXT\n"
-        << setw(15) << "insert" << setw(4) << ""
-        << "insert user words in user pos\n"
-        << setw(15) << "select" << setw(4) << ""
-        << "select from user pos as many as user len\n"
-        << setw(15) << "move" << setw(4) << ""
-        << "move a string in TEXT to user pos\n"
-        << setw(15) << "copy" << setw(4) << ""
-        << "store string from user pos as many as user len in CLIPBOARD\n"
-        << setw(15) << "paste" << setw(4) << ""
-        << "paste any thing from CLIPBOARD in user pos\n"
-        << setw(15) << "erase" << setw(4) << ""
-        << "erase from user pos as many as user len\n"
-        << setw(15) << "find" << setw(4) << ""
-        << "find user string\n"
-        << setw(15) << "replace" << setw(4) << ""
-        << "replace a string with user string\n"
-        << setw(15) << "open" << setw(4) << ""
-        << "open a file to edit\n"
-        << setw(15) << "save" << setw(4) << ""
-        << "save TEXT in a file\n"
-        << setw(15) << "exit" << setw(4) << ""
-        << "close the editor\n";
+        << setw(12) << "open"
+        << "    open the given \"file\" and store it into TEXT"
+        << "\n"
+        << setw(12) << "save"
+        << "    save TEXT into given \"file\""
+        << "\n"
+        << setw(12) << "show"
+        << "    show TEXT"
+        << "\n"
+        << setw(12) << "insert"
+        << "    insert user words in user pos"
+        << "\n"
+        << setw(12) << "select"
+        << "    select from user pos as many as user len"
+        << "\n"
+        << setw(12) << "move"
+        << "    move a string in TEXT to user pos"
+        << "\n"
+        << setw(12) << "copy"
+        << "    store string from user pos as many as user len in CLIPBOARD"
+        << "\n"
+        << setw(12) << "paste"
+        << "    paste any thing from CLIPBOARD in user pos"
+        << "\n"
+        << setw(12) << "erase"
+        << "    erase from user pos as many as user len"
+        << "\n"
+        << setw(12) << "clear"
+        << "    truncate TEXT"
+        << "\n"
+        << setw(12) << "find"
+        << "    find user string"
+        << "\n"
+        << setw(12) << "replace"
+        << "    replace a string with user string"
+        << "\n"
+        << setw(12) << "addline"
+        << "    add new line ad given \"pos\""
+        << "\n"
+        << setw(12) << "moveline"
+        << "    move a line to given \"pos\""
+        << "\n"
+        << setw(12) << "copyline"
+        << "    copy given \"line\" a paste into given \"pos\""
+        << "\n"
+        << setw(12) << "clearline"
+        << "    truncate given \"line\""
+        << "\n"
+        << setw(12) << "rmlines"
+        << "    remove a bunch of \"lines\" from given \"pos\""
+        << "\n"
+        << setw(12) << "rmline"
+        << "    remove given \"line\""
+        << "\n"
+        << setw(12) << "exit"
+        << "    close the editor\n";
 }
