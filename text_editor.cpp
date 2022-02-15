@@ -2,7 +2,7 @@
 #include <string>
 #include <iomanip>
 #include <fstream>
-#include "29_text_editor.hpp"
+#include "text_editor.hpp"
 
 using namespace std;
 
