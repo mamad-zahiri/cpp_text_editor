@@ -5,11 +5,16 @@ A simple command line text editor with some restriction on using C++ features
 ```shell
 $ g++ main.cpp text_editor.cpp
 ```
-then run 
+- open the app
+
+```shell
+$ ./a.out
+```
+- get help
 ```
 >> help
 ```
-to see the commands
+output will be:
 ```
         open    open the given "file" and store it into TEXT
         save    save TEXT into given "file"
